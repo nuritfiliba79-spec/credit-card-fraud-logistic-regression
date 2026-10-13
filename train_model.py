@@ -22,7 +22,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -66,6 +66,44 @@ def metrics(y_true, proba, threshold=0.5):
     }
 
 
+def data_checks(df, X_train, X_test, y_train, y_test):
+    """Duplicate / leakage checks between the train and test sets."""
+    feats = NUMERIC + CATEGORICAL
+    return {
+        "dup_ids": int(df["transaction_id"].duplicated().sum()),
+        "dup_rows": int(df.drop(columns="transaction_id").duplicated().sum()),
+        "index_overlap": len(set(X_train.index) & set(X_test.index)),
+        "test_rows_in_train": int(len(X_test.merge(X_train.drop_duplicates(), how="inner", on=feats))),
+        "train_fraud_rate": float(y_train.mean()),
+        "test_fraud_rate": float(y_test.mean()),
+    }
+
+
+def stability(X, y, n_splits=10, n_folds=5):
+    """Metrics across several random 80/20 splits and a stratified k-fold CV."""
+    keys = ["recall", "precision", "f1", "roc_auc"]
+    splits = []
+    for s in range(n_splits):
+        a, b, c, d = train_test_split(X, y, test_size=0.2, random_state=s, stratify=y)
+        m = metrics(d, build_model("balanced").fit(a, c).predict_proba(b)[:, 1])
+        splits.append({"seed": s, **{k: float(m[k]) for k in keys}})
+
+    folds = []
+    for i, (tr, te) in enumerate(StratifiedKFold(n_folds, shuffle=True, random_state=SEED).split(X, y)):
+        model = build_model("balanced").fit(X.iloc[tr], y.iloc[tr])
+        m = metrics(y.iloc[te], model.predict_proba(X.iloc[te])[:, 1])
+        folds.append({"fold": i + 1, **{k: float(m[k]) for k in keys}})
+
+    def summary(rows):
+        return {k: {"mean": float(np.mean([r[k] for r in rows])),
+                    "std": float(np.std([r[k] for r in rows])),
+                    "min": float(np.min([r[k] for r in rows])),
+                    "max": float(np.max([r[k] for r in rows]))} for k in keys}
+
+    return {"splits": splits, "folds": folds,
+            "splits_summary": summary(splits), "cv_summary": summary(folds)}
+
+
 def main():
     df = pd.read_csv(DATA_FILE)
     X = df[NUMERIC + CATEGORICAL]
@@ -75,6 +113,8 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=SEED, stratify=y
     )
+    checks = data_checks(df, X_train, X_test, y_train, y_test)
+    stab = stability(X, y)
 
     balanced = build_model("balanced").fit(X_train, y_train)
     baseline = build_model(None).fit(X_train, y_train)
@@ -111,6 +151,8 @@ def main():
             "train_fraud": int(y_train.sum()),
             "test_fraud": int(y_test.sum()),
         },
+        "checks": checks,
+        "stability": stab,
         "balanced": m_bal,
         "baseline": m_base,
         "best_f1_threshold": best_thr,
@@ -141,6 +183,9 @@ def main():
             f"f1={m['f1']:.3f} roc_auc={m['roc_auc']:.3f} pr_auc={m['pr_auc']:.3f} cm={m['cm']}"
         )
     print(f"best F1 threshold={best_thr:.3f} -> {out['best_f1_metrics']}")
+    print("checks:", checks)
+    for name in ("splits_summary", "cv_summary"):
+        print(name, {k: f"{v['mean']:.3f}±{v['std']:.3f}" for k, v in stab[name].items()})
 
 
 if __name__ == "__main__":

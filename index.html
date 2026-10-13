@@ -170,6 +170,24 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
 
   <section class="grid two">
     <div class="card">
+      <h2>בדיקות תקינות החלוקה</h2>
+      <p class="sub">האם החלוקה ל‑80/20 אקראית, בלי כפילויות ובלי זליגת מידע בין האימון למבחן?</p>
+      <table id="checks"></table>
+    </div>
+    <div class="card">
+      <h2>יציבות המודל — האם התוצאה תלויה בהגרלה?</h2>
+      <p class="sub">כל נקודה היא הרצה: 10 חלוקות אקראיות שונות של 80/20 ו‑5 קבוצות של Cross‑Validation. הקו השחור הוא החלוקה שבדשבורד.</p>
+      <div class="legend">
+        <span style="--c:var(--s1)">10 חלוקות אקראיות</span>
+        <span style="--c:var(--s2)">5-Fold CV</span>
+      </div>
+      <div id="stab"></div>
+      <table id="stabTbl" style="margin-top:8px"></table>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
       <h2>מקדמי המודל</h2>
       <p class="sub">על משתנים מתוקננים. ערך חיובי מעלה את סיכוי ההונאה, ערך שלילי מוריד אותו.</p>
       <div id="coef"></div>
@@ -315,6 +333,57 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
     rowsCmp.map(([n, k]) => `<tr><td>${n}</td><td class="n">${D.balanced[k].toFixed(3)}</td><td class="n">${D.baseline[k].toFixed(3)}</td></tr>`).join("") +
     `<tr><td>הונאות שנתפסו</td><td class="n">${D.balanced.cm.tp} / ${ds.test_fraud}</td><td class="n">${D.baseline.cm.tp} / ${ds.test_fraud}</td></tr>` +
     `<tr><td>התראות שווא</td><td class="n">${D.balanced.cm.fp}</td><td class="n">${D.baseline.cm.fp}</td></tr></tbody>`;
+
+  // ---- Split checks
+  const C = D.checks;
+  const ok = (pass) => pass ? `<span style="color:var(--good)">✓ תקין</span>` : `<span style="color:var(--critical)">✗ בעיה</span>`;
+  $("checks").innerHTML = `<thead><tr><th>בדיקה</th><th class="n">תוצאה</th><th>סטטוס</th></tr></thead><tbody>` + [
+    ["מזהי עסקה כפולים", C.dup_ids, C.dup_ids === 0],
+    ["שורות זהות בנתונים", C.dup_rows, C.dup_rows === 0],
+    ["שורות שמופיעות גם באימון וגם במבחן", C.index_overlap, C.index_overlap === 0],
+    ["שורות במבחן שזהות לשורה באימון", C.test_rows_in_train, C.test_rows_in_train === 0],
+    ["שיעור הונאות: אימון / מבחן", `${pct(C.train_fraud_rate, 2)} / ${pct(C.test_fraud_rate, 2)}`, Math.abs(C.train_fraud_rate - C.test_fraud_rate) < 0.002],
+  ].map(([l, v, p]) => `<tr><td>${l}</td><td class="n ltr">${v}</td><td>${ok(p)}</td></tr>`).join("") +
+  `</tbody>`;
+  $("checks").insertAdjacentHTML("afterend", `<p class="sub" style="margin-top:10px">עמודת <span class="ltr">transaction_id</span> לא משמשת כמשתנה במודל, כדי שלא תיכנס דרכה זליגת מידע. החלוקה מרובדת (<span class="ltr">stratify</span>), ולכן שיעור ההונאות זהה בשתי הקבוצות.</p>`);
+
+  // ---- Stability strip plot (one row per metric, 0..1 scale)
+  (function stabChart() {
+    const S = D.stability;
+    const mets = [["Recall", "recall"], ["Precision", "precision"], ["F1", "f1"], ["ROC AUC", "roc_auc"]];
+    const W = 520, row = 44, m = { l: 80, r: 14, t: 6, b: 26 };
+    const H = m.t + m.b + mets.length * row, iw = W - m.l - m.r;
+    const sx = (v) => v * iw;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "יציבות המדדים" }, $("stab"));
+    svg.style.direction = "ltr";
+    const g = el("g", { transform: `translate(${m.l},${m.t})` }, svg);
+    const ih = mets.length * row;
+    for (let i = 0; i <= 5; i++) {
+      const v = i / 5;
+      el("line", { x1: sx(v), x2: sx(v), y1: 0, y2: ih, stroke: "var(--grid)" }, g);
+      el("text", { x: sx(v), y: ih + 16, "text-anchor": "middle" }, g).textContent = v.toFixed(1);
+    }
+    const dot = (cx, cy, fill, html) => {
+      const c = el("circle", { cx, cy, r: 5, fill, stroke: "var(--surface)", "stroke-width": 2 }, g);
+      const hit = el("circle", { cx, cy, r: 9, fill: "transparent" }, g);
+      hit.addEventListener("mousemove", (e) => { c.setAttribute("r", 7); showTip(e, html); });
+      hit.addEventListener("mouseleave", () => { c.setAttribute("r", 5); hideTip(); });
+    };
+    mets.forEach(([label, k], i) => {
+      const y0 = i * row;
+      el("text", { x: -10, y: y0 + row / 2 + 4, "text-anchor": "end" }, g).textContent = label;
+      const cur = D.balanced[k];
+      el("line", { x1: sx(cur), x2: sx(cur), y1: y0 + 6, y2: y0 + row - 6, stroke: "var(--ink)", "stroke-width": 2 }, g);
+      S.splits.forEach((r) => dot(sx(r[k]), y0 + row / 2 - 7, "var(--s1)",
+        `חלוקה אקראית (seed ${r.seed})<div>${label}: <b class="ltr">${r[k].toFixed(3)}</b></div>`));
+      S.folds.forEach((r) => dot(sx(r[k]), y0 + row / 2 + 7, "var(--s2)",
+        `CV קבוצה ${r.fold}<div>${label}: <b class="ltr">${r[k].toFixed(3)}</b></div>`));
+    });
+    const ms = (o) => `${o.mean.toFixed(3)} ± ${o.std.toFixed(3)}`;
+    $("stabTbl").innerHTML = `<thead><tr><th>מדד</th><th class="n">החלוקה בדשבורד</th><th class="n">10 חלוקות</th><th class="n">5-Fold CV</th></tr></thead><tbody>` +
+      mets.map(([l, k]) => `<tr><td>${l}</td><td class="n">${D.balanced[k].toFixed(3)}</td><td class="n ltr">${ms(S.splits_summary[k])}</td><td class="n ltr">${ms(S.cv_summary[k])}</td></tr>`).join("") + `</tbody>`;
+    $("stabTbl").insertAdjacentHTML("afterend", `<p class="sub" style="margin-top:10px">במבחן יש רק ${ds.test_fraud} הונאות, ולכן כל הונאה שמפוספסת מזיזה את ה‑Recall בכ‑${pct(1 / ds.test_fraud, 1)}. ה‑ROC AUC כמעט לא משתנה בין ההרצות, ולכן הוא המדד היציב ביותר.</p>`);
+  })();
 
   // ---- Coefficients (diverging bars)
   (function coefChart() {
