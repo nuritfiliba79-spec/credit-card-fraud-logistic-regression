@@ -4,216 +4,372 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fraud Detection Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11,11,11,0.10);
+  --page: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #14161a;
+  --ink-2: #4a4d55;
+  --muted: #80838b;
+  --grid: #e6e7eb;
+  --axis: #c3c5cc;
+  --border: rgba(20,22,26,0.08);
+  --shadow: 0 1px 2px rgba(20,22,26,.04), 0 4px 16px rgba(20,22,26,.05);
   --s1: #2a78d6;
   --s2: #eb6834;
+  --s3: #1baf7a;
   --neg: #2a78d6;
   --pos: #e34948;
-  --good: #0ca30c;
+  --good: #0a8a0a;
   --critical: #d03b3b;
-  --cell-1: #cde2fb;
-  --cell-2: #86b6ef;
+  --cell: #86b6ef;
+  --wash: #eef4fc;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7;
-    --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --s1: #3987e5; --s2: #d95926; --neg: #3987e5; --pos: #e66767;
-    --cell-1: #184f95; --cell-2: #104281;
+    --muted: #8f8d86; --grid: #2c2c2a; --axis: #45453f; --border: rgba(255,255,255,0.08);
+    --shadow: none;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --neg: #3987e5; --pos: #e66767;
+    --good: #0ca30c; --cell: #184f95; --wash: #16233a;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7;
-  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --s1: #3987e5; --s2: #d95926; --neg: #3987e5; --pos: #e66767;
-  --cell-1: #184f95; --cell-2: #104281;
+  --muted: #8f8d86; --grid: #2c2c2a; --axis: #45453f; --border: rgba(255,255,255,0.08);
+  --shadow: none;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --neg: #3987e5; --pos: #e66767;
+  --good: #0ca30c; --cell: #184f95; --wash: #16233a;
 }
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body {
   margin: 0; background: var(--page); color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5;
+  font-family: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.6;
 }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
-header h1 { margin: 0 0 4px; font-size: 1.6rem; }
-header p { margin: 0; color: var(--ink-2); }
-.grid { display: grid; gap: 16px; margin-top: 20px; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 28px 16px 56px; }
+.ltr { direction: ltr; unicode-bidi: isolate; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- header ---------- */
+.top { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; }
+.eyebrow { color: var(--s1); font-weight: 600; font-size: .85rem; letter-spacing: .02em; }
+h1 { margin: 2px 0 6px; font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.25; font-weight: 700; }
+.lead { margin: 0; color: var(--ink-2); max-width: 70ch; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 14px; font-size: .88rem; color: var(--ink-2);
+}
+.chip b { color: var(--ink); font-weight: 600; }
+
+/* ---------- summary ---------- */
+.summary {
+  margin-top: 22px; background: var(--wash); border-radius: 16px; padding: 20px 22px;
+  border: 1px solid var(--border);
+}
+.summary h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.summary ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.summary li { display: flex; gap: 10px; align-items: baseline; }
+.summary li::before { content: "●"; color: var(--s1); font-size: .7rem; flex: none; transform: translateY(-2px); }
+
+/* ---------- sticky threshold bar ---------- */
+.thrbar {
+  position: sticky; top: 0; z-index: 5; margin: 22px -16px 0; padding: 10px 16px;
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.thrbar .row { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.thrbar label { font-weight: 600; }
+.thrbar input[type=range] { direction: ltr; flex: 1; min-width: 160px; accent-color: var(--s1); }
+.thrval {
+  font-weight: 700; font-size: 1.1rem; min-width: 3.6em; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 8px;
+}
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-inline-start: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--s1); color: #fff; }
+.thrhint { color: var(--ink-2); font-size: .85rem; margin-top: 4px; }
+button {
+  font: inherit; font-size: .88rem; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer;
+}
+button:hover { filter: brightness(.96); }
+
+/* ---------- sections ---------- */
+section.block { margin-top: 40px; scroll-margin-top: 90px; }
+.shead { display: flex; gap: 12px; align-items: baseline; margin-bottom: 4px; }
+.shead .n {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--s1); color: #fff; font-weight: 600; font-size: .9rem; transform: translateY(4px);
+}
+.shead h2 { margin: 0; font-size: 1.3rem; }
+.sintro { margin: 0 0 16px 0; padding-inline-start: 40px; color: var(--ink-2); max-width: 80ch; }
+.grid { display: grid; gap: 16px; }
 .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .two { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .two { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .kpis { grid-template-columns: 1fr; } .sintro { padding-inline-start: 0; } }
 .card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
-  min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
+  min-width: 0; box-shadow: var(--shadow);
 }
-.card h2 { margin: 0 0 4px; font-size: 1rem; }
-.card .sub { margin: 0 0 12px; color: var(--ink-2); font-size: .85rem; }
-.kpi .label { color: var(--ink-2); font-size: .85rem; }
-.kpi .value { font-size: 2.1rem; font-weight: 650; line-height: 1.2; }
-.kpi .note { color: var(--muted); font-size: .8rem; }
-.facts { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--ink-2); font-size: .9rem; margin-top: 12px; }
-.facts b { color: var(--ink); }
-.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.controls input[type=range] { flex: 1; min-width: 180px; accent-color: var(--s1); }
-.controls output { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 3.5em; }
-button {
-  font: inherit; font-size: .85rem; color: var(--ink); background: transparent;
-  border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; cursor: pointer;
-}
-button:hover { background: var(--grid); }
+.card h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.card .sub { margin: 0 0 14px; color: var(--ink-2); font-size: .9rem; }
+.howto { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--page); color: var(--ink-2); font-size: .85rem; }
+.howto b { color: var(--ink); }
+
+/* KPI */
+.kpi .q { color: var(--ink-2); font-size: .9rem; min-height: 2.9em; }
+.kpi .name { font-weight: 600; font-size: .95rem; }
+.kpi .name small { color: var(--muted); font-weight: 400; }
+.kpi .value { font-size: 2.4rem; font-weight: 700; line-height: 1.15; margin-top: 6px; }
+.kpi .meter { height: 6px; background: var(--grid); border-radius: 3px; margin: 10px 0 8px; overflow: hidden; }
+.kpi .meter i { display: block; height: 100%; background: var(--s1); border-radius: 3px; transition: width .2s; }
+.kpi .note { color: var(--ink-2); font-size: .85rem; }
+
+/* charts */
 svg { display: block; width: 100%; height: auto; overflow: visible; }
-svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
-.legend { display: flex; gap: 16px; font-size: .85rem; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
-.legend span::before { content: ""; display: inline-block; width: 12px; height: 3px; border-radius: 2px; background: var(--c); margin-inline-end: 6px; vertical-align: middle; }
-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-th, td { padding: 8px; border-bottom: 1px solid var(--grid); text-align: start; }
-td.n, th.n { font-variant-numeric: tabular-nums; text-align: end; }
-th { color: var(--ink-2); font-weight: 600; }
-.cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; font-size: .85rem; }
-.cm div { padding: 10px; border-radius: 6px; text-align: center; }
-.cm .h { color: var(--ink-2); }
-.cm .cell { color: var(--ink); background: var(--cell-1); }
+svg text { fill: var(--muted); font-size: 12px; font-family: inherit; }
+svg text.lbl { fill: var(--ink-2); font-size: 13px; }
+.legend { display: flex; gap: 18px; font-size: .88rem; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); margin-inline-end: 6px; vertical-align: middle; }
+.legend .dot::before { width: 10px; height: 10px; border-radius: 50%; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { padding: 9px 8px; border-bottom: 1px solid var(--grid); text-align: start; }
+td.n, th.n { font-variant-numeric: tabular-nums; text-align: center; }
+th { color: var(--ink-2); font-weight: 500; font-size: .85rem; }
+td.win { font-weight: 700; }
+tr:last-child td { border-bottom: 0; }
+
+/* confusion matrix */
+.cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; font-size: .88rem; }
+.cm .h { color: var(--ink-2); display: grid; place-items: center; text-align: center; padding: 4px; font-weight: 500; }
+.cm .cell { border-radius: 10px; padding: 14px 8px; text-align: center; color: var(--ink); }
+.cm .cell b { display: block; font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.cm .cell span { display: block; font-size: .82rem; color: var(--ink-2); }
 .cm .cell.bad { outline: 2px solid var(--critical); outline-offset: -2px; }
-.cm .cell b { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-.tip {
-  position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: .8rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; z-index: 10; direction: rtl;
-}
-form.pred { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px; }
-form.pred label { display: flex; flex-direction: column; font-size: .8rem; color: var(--ink-2); gap: 2px; }
+.cm .cell.warn { outline: 2px dashed var(--s2); outline-offset: -2px; }
+
+/* checks */
+.ok { color: var(--good); font-weight: 600; white-space: nowrap; }
+.fail { color: var(--critical); font-weight: 600; white-space: nowrap; }
+
+/* predictor */
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+form.pred { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px 14px; }
+@media (max-width: 480px) { form.pred { grid-template-columns: 1fr; } }
+form.pred label { display: flex; flex-direction: column; font-size: .85rem; color: var(--ink-2); gap: 4px; }
 form.pred input, form.pred select {
   font: inherit; color: var(--ink); background: var(--page); border: 1px solid var(--border);
-  border-radius: 6px; padding: 6px 8px;
+  border-radius: 8px; padding: 7px 10px;
 }
-.risk { margin-top: 14px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.risk .big { font-size: 2.2rem; font-weight: 650; }
-.badge { font-size: .85rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.risk { margin-top: 18px; padding: 16px; border-radius: 12px; background: var(--page); }
+.risk .top2 { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.risk .big { font-size: 2.4rem; font-weight: 700; line-height: 1; }
+.badge { font-size: .9rem; font-weight: 600; padding: 3px 12px; border-radius: 999px; border: 1.5px solid currentColor; }
 .badge.hi { color: var(--critical); }
 .badge.lo { color: var(--good); }
-.bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; margin-top: 8px; }
-.bar > i { display: block; height: 100%; background: var(--critical); border-radius: 4px; }
-footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
-.ltr { direction: ltr; unicode-bidi: isolate; }
+.bar { direction: ltr; position: relative; height: 10px; background: var(--grid); border-radius: 5px; margin-top: 12px; }
+.bar > i { display: block; height: 100%; background: var(--ink-2); border-radius: 5px; transition: width .2s; }
+.bar > em { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.risk .expl { color: var(--ink-2); font-size: .85rem; margin-top: 8px; }
+
+details.gloss { margin-top: 40px; }
+details.gloss summary { cursor: pointer; font-weight: 600; font-size: 1.05rem; }
+details.gloss dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 14px 0 0; }
+details.gloss dt { font-weight: 600; }
+details.gloss dd { margin: 0; color: var(--ink-2); }
+@media (max-width: 600px) { details.gloss dl { grid-template-columns: 1fr; } details.gloss dd { margin-bottom: 8px; } }
+
+.tip {
+  position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: .85rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15); opacity: 0; transition: opacity .1s; z-index: 10; direction: rtl;
+}
+footer { color: var(--muted); font-size: .82rem; margin-top: 36px; border-top: 1px solid var(--border); padding-top: 14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+    <div class="top">
       <div>
-        <h1>זיהוי הונאות בכרטיסי אשראי — רגרסיה לוגיסטית</h1>
-        <p>המודל חוזה את הסיכוי שעסקה היא הונאה. הנתונים לא מאוזנים, ולכן המודל אומן עם <span class="ltr">class_weight="balanced"</span>.</p>
+        <div class="eyebrow">רגרסיה לוגיסטית · Machine Learning</div>
+        <h1>זיהוי הונאות בכרטיסי אשראי</h1>
+        <p class="lead">המודל מקבל פרטי עסקה ומחזיר את <b>הסיכוי שהיא הונאה</b>. רק 1.5% מהעסקאות בנתונים הן הונאות, ולכן המודל אומן כך שייתן משקל גבוה יותר להונאות.</p>
       </div>
-      <button id="themeBtn" type="button">מצב כהה/בהיר</button>
+      <button id="themeBtn" type="button">◐ מצב כהה / בהיר</button>
     </div>
-    <div class="facts" id="facts"></div>
+    <div class="chips" id="facts"></div>
   </header>
 
-  <section class="card" style="margin-top:20px">
-    <div class="controls">
-      <label for="thr"><b>סף החלטה (Threshold)</b></label>
-      <input id="thr" type="range" min="0.01" max="0.99" step="0.001" value="0.5">
-      <output id="thrOut" class="ltr">0.50</output>
-      <button type="button" id="thrDefault">0.50</button>
-      <button type="button" id="thrBest">סף F1 מיטבי (נבחר ב‑CV על Train)</button>
-    </div>
-    <p class="sub" style="margin:8px 0 0">עסקה מסווגת כהונאה כשההסתברות שהמודל נותן לה גבוהה מהסף. סף נמוך מגדיל Recall (תופסים יותר הונאות) ומוריד Precision (יותר התראות שווא).</p>
-    <p class="sub" id="bestNote" style="margin:4px 0 0"></p>
-  </section>
+  <div class="summary">
+    <h2>בשורה התחתונה</h2>
+    <ul id="summary"></ul>
+  </div>
 
-  <section class="grid kpis" id="kpis"></section>
-
-  <section class="grid two">
-    <div class="card">
-      <h2>עקומת ROC — נתוני מבחן (20%)</h2>
-      <p class="sub">השוואה בין מודל מאוזן למודל רגיל, ללא שקלול מחלקות</p>
-      <div class="legend">
-        <span style="--c:var(--s1)">מאוזן (balanced)</span>
-        <span style="--c:var(--s2)">רגיל (ללא שקלול)</span>
+  <div class="thrbar">
+    <div class="row">
+      <label for="thr">סף החלטה</label>
+      <input id="thr" type="range" min="0.01" max="0.99" step="0.001" value="0.5" aria-describedby="thrHint">
+      <span class="thrval ltr num" id="thrOut">0.500</span>
+      <div class="seg" role="group" aria-label="ספים מוכנים">
+        <button type="button" id="thrDefault" aria-pressed="true">ברירת מחדל 0.5</button>
+        <button type="button" id="thrBest" aria-pressed="false">F1 מיטבי</button>
       </div>
-      <div id="roc"></div>
     </div>
-    <div class="card">
-      <h2>Precision, Recall ו‑F1 לפי סף</h2>
-      <p class="sub">המודל המאוזן. הקו האנכי מסמן את הסף שנבחר.</p>
-      <div class="legend">
-        <span style="--c:var(--s1)">Recall</span>
-        <span style="--c:var(--s2)">Precision</span>
-        <span style="--c:#1baf7a">F1</span>
+    <div class="thrhint" id="thrHint">עסקה מסומנת כהונאה כשהסיכוי שלה גבוה מהסף. <b>סף נמוך</b> תופס יותר הונאות אבל מייצר יותר התראות שווא. כל המספרים בעמוד מתעדכנים.</div>
+  </div>
+
+  <!-- 1. metrics -->
+  <section class="block" id="s-metrics">
+    <div class="shead"><span class="n">1</span><h2>ביצועי המודל</h2></div>
+    <p class="sintro">כל המדדים מחושבים על <b>נתוני המבחן בלבד</b>: 2,000 עסקאות (20%) שהמודל לא ראה בזמן האימון.</p>
+    <div class="grid kpis" id="kpis"></div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card">
+        <h3>מטריצת בלבול: איפה המודל צדק ואיפה טעה</h3>
+        <p class="sub" id="cmSub"></p>
+        <div class="cm" id="cm"></div>
+        <p class="howto" id="cmHow"></p>
       </div>
-      <div id="sweep"></div>
-    </div>
-  </section>
-
-  <section class="grid two">
-    <div class="card">
-      <h2>מטריצת בלבול (Confusion Matrix)</h2>
-      <p class="sub" id="cmSub"></p>
-      <div class="cm" id="cm"></div>
-    </div>
-    <div class="card">
-      <h2>השוואה: מאוזן מול רגיל (סף 0.5)</h2>
-      <p class="sub">המודל הרגיל מפספס הונאות רבות, כי רוב הדוגמאות הן עסקאות תקינות.</p>
-      <table id="cmp"></table>
-    </div>
-  </section>
-
-  <section class="grid two">
-    <div class="card">
-      <h2>בדיקות תקינות החלוקה</h2>
-      <p class="sub">האם החלוקה ל‑80/20 אקראית, בלי כפילויות ובלי זליגת מידע בין האימון למבחן?</p>
-      <table id="checks"></table>
-    </div>
-    <div class="card">
-      <h2>יציבות המודל — בדיקה משלימה בלבד</h2>
-      <p class="sub">המדדים המדווחים בדשבורד מחושבים רק על ה‑20% Test. כאן, לצורך בדיקת אמינות בלבד, מאמנים מחדש על הגרלות אחרות. כל נקודה היא הרצה: 10 חלוקות אקראיות שונות של 80/20 ו‑5 קבוצות של Cross‑Validation. הקו השחור הוא החלוקה שבדשבורד.</p>
-      <div class="legend">
-        <span style="--c:var(--s1)">10 חלוקות אקראיות</span>
-        <span style="--c:var(--s2)">5-Fold CV</span>
+      <div class="card">
+        <h3>ההשפעה של הסף על המדדים</h3>
+        <p class="sub">הקו המקווקו הוא הסף שנבחר כרגע.</p>
+        <div class="legend">
+          <span style="--c:var(--s1)">Recall</span>
+          <span style="--c:var(--s2)">Precision</span>
+          <span style="--c:var(--s3)">F1</span>
+        </div>
+        <div id="sweep"></div>
+        <p class="howto"><b>איך לקרוא:</b> ככל שהסף עולה (ימינה), Recall (כחול) יורד כי נתפסות פחות הונאות, ו‑Precision (כתום) עולה כי יש פחות התראות שווא.</p>
       </div>
-      <div id="stab"></div>
-      <table id="stabTbl" style="margin-top:8px"></table>
     </div>
   </section>
 
-  <section class="grid two">
-    <div class="card">
-      <h2>מקדמי המודל</h2>
-      <p class="sub">על משתנים מתוקננים. ערך חיובי מעלה את סיכוי ההונאה, ערך שלילי מוריד אותו.</p>
-      <div id="coef"></div>
+  <!-- 2. balanced vs regular -->
+  <section class="block" id="s-compare">
+    <div class="shead"><span class="n">2</span><h2>למה צריך לטפל בחוסר האיזון</h2></div>
+    <p class="sintro">השוואה בין המודל המאוזן לבין מודל רגיל שאומן בלי שקלול. כשרוב העסקאות תקינות, מודל רגיל "לומד" לסמן כמעט הכול כתקין ומפספס הונאות.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3>מאוזן מול רגיל (סף 0.5)</h3>
+        <p class="sub">הערך הטוב יותר בכל שורה מודגש.</p>
+        <table id="cmp"></table>
+      </div>
+      <div class="card">
+        <h3>עקומת ROC</h3>
+        <p class="sub">עד כמה כל מודל מצליח להבדיל בין הונאה לעסקה תקינה, בכל הספים.</p>
+        <div class="legend">
+          <span style="--c:var(--s1)">מאוזן</span>
+          <span style="--c:var(--s2)">רגיל</span>
+        </div>
+        <div id="roc"></div>
+        <p class="howto"><b>איך לקרוא:</b> עקומה שצמודה לפינה השמאלית העליונה היא מודל טוב. הקו האלכסוני המקווקו הוא ניחוש אקראי. שני המודלים כמעט זהים כאן, וההבדל ביניהם הוא בעיקר בבחירת הסף.</p>
+      </div>
     </div>
+  </section>
+
+  <!-- 3. reliability -->
+  <section class="block" id="s-reliability">
+    <div class="shead"><span class="n">3</span><h2>האם אפשר לסמוך על התוצאות</h2></div>
+    <p class="sintro">בדקנו שהחלוקה ל‑80/20 תקינה ושהתוצאות לא תלויות בהגרלה מסוימת.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3>בדיקות תקינות החלוקה</h3>
+        <p class="sub">האם יש כפילויות, או עסקאות שזלגו מהאימון למבחן?</p>
+        <table id="checks"></table>
+        <p class="howto">עמודת <span class="ltr">transaction_id</span> לא משמשת כמשתנה במודל. החלוקה מרובדת (<span class="ltr">stratify</span>), ולכן שיעור ההונאות זהה בשתי הקבוצות.</p>
+      </div>
+      <div class="card">
+        <h3>יציבות: מה קורה בהגרלות אחרות?</h3>
+        <p class="sub">בדיקה משלימה בלבד. המודל אומן מחדש על 10 חלוקות אקראיות ועל 5 קבוצות Cross‑Validation. כל נקודה היא הרצה אחת.</p>
+        <div class="legend">
+          <span class="dot" style="--c:var(--s1)">10 חלוקות אקראיות</span>
+          <span class="dot" style="--c:var(--s2)">5‑Fold CV</span>
+          <span style="--c:var(--ink)">החלוקה בדשבורד</span>
+        </div>
+        <div id="stab"></div>
+        <table id="stabTbl" style="margin-top:10px"></table>
+        <p class="howto" id="stabHow"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. drivers -->
+  <section class="block" id="s-drivers">
+    <div class="shead"><span class="n">4</span><h2>מה גורם למודל לחשוד בעסקה</h2></div>
+    <p class="sintro">ההשפעה של כל מאפיין על סיכוי ההונאה. <span style="color:var(--pos);font-weight:600">אדום</span> מעלה את הסיכוי, <span style="color:var(--neg);font-weight:600">כחול</span> מוריד אותו. ככל שהעמודה ארוכה יותר, ההשפעה חזקה יותר.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3>מקדמי המודל</h3>
+        <p class="sub">על משתנים מתוקננים, כדי שאפשר יהיה להשוות ביניהם.</p>
+        <div id="coef"></div>
+      </div>
+      <div class="card">
+        <h3>במילים פשוטות</h3>
+        <ul id="drivers" style="margin:6px 0 0;padding-inline-start:20px;display:grid;gap:10px"></ul>
+        <p class="howto"><b>שימו לב:</b> המקדמים מראים קשר סטטיסטי בנתונים, לא בהכרח סיבה ותוצאה.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. try it -->
+  <section class="block" id="s-try">
+    <div class="shead"><span class="n">5</span><h2>נסו בעצמכם</h2></div>
+    <p class="sintro">הזינו פרטי עסקה וראו מה הסיכוי שהמודל נותן לה להיות הונאה.</p>
     <div class="card">
-      <h2>חיזוי עסקה חדשה</h2>
-      <p class="sub">הזינו פרטי עסקה כדי לקבל את סיכוי ההונאה לפי המודל המאוזן.</p>
+      <div class="presets">
+        <button type="button" data-preset="normal">דוגמה: עסקה רגילה</button>
+        <button type="button" data-preset="suspicious">דוגמה: עסקה חשודה</button>
+      </div>
       <form class="pred" id="pred">
-        <label>סכום (amount)<input name="amount" type="number" step="0.01" value="850"></label>
-        <label>שעה (0–23)<input name="transaction_hour" type="number" min="0" max="23" value="2"></label>
-        <label>עסקה בחו"ל<select name="foreign_transaction"><option value="0">לא</option><option value="1" selected>כן</option></select></label>
-        <label>אי‑התאמת מיקום<select name="location_mismatch"><option value="0">לא</option><option value="1" selected>כן</option></select></label>
-        <label>ציון אמון במכשיר (0–100)<input name="device_trust_score" type="number" min="0" max="100" value="25"></label>
-        <label>עסקאות ב‑24 שעות<input name="velocity_last_24h" type="number" min="0" value="6"></label>
-        <label>גיל בעל הכרטיס<input name="cardholder_age" type="number" min="18" max="100" value="35"></label>
-        <label>קטגוריית בית עסק<select name="merchant_category" id="catSel"></select></label>
+        <label>סכום העסקה ($)<input name="amount" type="number" step="0.01" min="0"></label>
+        <label>שעת העסקה (0–23)<input name="transaction_hour" type="number" min="0" max="23"></label>
+        <label>עסקה בחו"ל<select name="foreign_transaction"><option value="0">לא</option><option value="1">כן</option></select></label>
+        <label>המיקום לא תואם לבעל הכרטיס<select name="location_mismatch"><option value="0">לא</option><option value="1">כן</option></select></label>
+        <label>ציון אמון במכשיר (0–100)<input name="device_trust_score" type="number" min="0" max="100"></label>
+        <label>מספר עסקאות ב‑24 השעות האחרונות<input name="velocity_last_24h" type="number" min="0"></label>
+        <label>גיל בעל הכרטיס<input name="cardholder_age" type="number" min="18" max="100"></label>
+        <label>סוג בית העסק<select name="merchant_category" id="catSel"></select></label>
       </form>
-      <div class="risk"><span class="big ltr" id="riskP">–</span><span class="badge" id="riskB"></span></div>
-      <div class="bar"><i id="riskBar" style="width:0"></i></div>
+      <div class="risk" aria-live="polite">
+        <div class="top2"><span class="big ltr num" id="riskP">–</span><span>סיכוי להונאה</span><span class="badge" id="riskB"></span></div>
+        <div class="bar"><i id="riskBar" style="width:0"></i><em id="riskThr"></em></div>
+        <div class="expl" id="riskExpl"></div>
+      </div>
     </div>
   </section>
+
+  <details class="gloss">
+    <summary>מילון מונחים</summary>
+    <dl>
+      <dt>Recall (רגישות)</dt><dd>מתוך כל ההונאות האמיתיות, כמה המודל תפס. זה המדד החשוב ביותר כאן, כי הונאה שפוספסה עולה כסף.</dd>
+      <dt>Precision (דיוק)</dt><dd>מתוך כל העסקאות שהמודל סימן כהונאה, כמה באמת היו הונאה. ערך נמוך פירושו הרבה התראות שווא.</dd>
+      <dt>F1 Score</dt><dd>ממוצע הרמוני של Recall ו‑Precision: ציון אחד שמאזן בין השניים.</dd>
+      <dt>ROC AUC</dt><dd>היכולת של המודל לדרג הונאות מעל עסקאות תקינות, בלי קשר לסף. 0.5 הוא ניחוש, 1.0 הוא מושלם.</dd>
+      <dt>PR AUC</dt><dd>השטח מתחת לעקומת Precision‑Recall. מדד מחמיר יותר מ‑ROC AUC כשהנתונים לא מאוזנים.</dd>
+      <dt>סף החלטה</dt><dd>הסיכוי שממנו והלאה עסקה מסומנת כהונאה.</dd>
+      <dt>class_weight="balanced"</dt><dd>שקלול שנותן לכל הונאה משקל גבוה פי ~65 מעסקה תקינה באימון, כדי לפצות על כך שהונאות נדירות.</dd>
+      <dt>Cross‑Validation</dt><dd>חלוקת הנתונים לכמה קבוצות, כשבכל פעם קבוצה אחרת משמשת לבדיקה. כך בודקים שהתוצאה יציבה.</dd>
+    </dl>
+  </details>
 
   <footer>
-    מודל: LogisticRegression (scikit-learn), StandardScaler + OneHotEncoder. חלוקה אקראית ומרובדת 80/20 (random_state=42).
-    כל המדדים מחושבים על נתוני המבחן בלבד.
+    מודל: <span class="ltr">LogisticRegression</span> (scikit-learn) עם <span class="ltr">StandardScaler + OneHotEncoder</span>. חלוקה אקראית ומרובדת 80/20 (<span class="ltr">random_state=42</span>).
+    כל המדדים המדווחים מחושבים על נתוני המבחן בלבד. הסף המיטבי נבחר ב‑CV על נתוני האימון בלבד.
   </footer>
 </div>
 <div class="tip" id="tip"></div>
@@ -224,10 +380,20 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   const D = window.MODEL_DATA;
   const $ = (id) => document.getElementById(id);
   const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const f3 = (v) => v.toFixed(3);
   const NS = "http://www.w3.org/2000/svg";
   const tip = $("tip");
+  const ds = D.dataset;
 
-  // Theme toggle
+  // Hebrew display names for features
+  const HE = {
+    amount: "סכום העסקה", transaction_hour: "שעת העסקה", foreign_transaction: "עסקה בחו\"ל",
+    location_mismatch: "אי‑התאמת מיקום", device_trust_score: "ציון אמון במכשיר",
+    velocity_last_24h: "עסקאות ב‑24 שעות", cardholder_age: "גיל בעל הכרטיס",
+  };
+  const CAT_HE = { Electronics: "אלקטרוניקה", Travel: "נסיעות", Grocery: "מכולת", Food: "מזון ומסעדות", Clothing: "ביגוד" };
+  const featName = (f) => f.startsWith("merchant_category=") ? "בית עסק: " + (CAT_HE[f.split("=")[1]] || f.split("=")[1]) : (HE[f] || f);
+
   $("themeBtn").onclick = () => {
     const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
     document.documentElement.dataset.theme = dark ? "light" : "dark";
@@ -236,7 +402,8 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   function showTip(e, html) {
     tip.innerHTML = html; tip.style.opacity = 1;
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
-    tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+    const y = Math.min(e.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
+    tip.style.left = x + "px"; tip.style.top = y + "px";
   }
   const hideTip = () => (tip.style.opacity = 0);
 
@@ -247,14 +414,23 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
     return n;
   }
 
-  // ---- Dataset facts
-  const ds = D.dataset;
+  // ---- Header chips
   $("facts").innerHTML = [
-    ["סה\"כ עסקאות", ds.rows.toLocaleString()],
-    ["הונאות", `${ds.fraud} (${pct(ds.fraud_rate, 2)})`],
-    ["Train (80%)", `${ds.train_rows.toLocaleString()} · ${ds.train_fraud} הונאות`],
-    ["Test (20%)", `${ds.test_rows.toLocaleString()} · ${ds.test_fraud} הונאות`],
-  ].map(([k, v]) => `<span>${k}: <b class="ltr">${v}</b></span>`).join("");
+    ["עסקאות", ds.rows.toLocaleString()],
+    ["הונאות", `${ds.fraud} (${pct(ds.fraud_rate, 1)})`],
+    ["אימון 80%", `${ds.train_rows.toLocaleString()} עסקאות`],
+    ["מבחן 20%", `${ds.test_rows.toLocaleString()} עסקאות · ${ds.test_fraud} הונאות`],
+  ].map(([k, v]) => `<span class="chip">${k}: <b>${v}</b></span>`).join("");
+
+  // ---- Bottom-line summary (threshold 0.5, test set)
+  const B = D.balanced, R = D.baseline;
+  const normals = ds.test_rows - ds.test_fraud;
+  $("summary").innerHTML = [
+    `המודל תפס <b>${B.cm.tp} מתוך ${ds.test_fraud} הונאות</b> בנתוני המבחן (Recall <span class="ltr">${f3(B.recall)}</span>).`,
+    `המחיר: <b>${B.cm.fp} התראות שווא</b> מתוך ${normals.toLocaleString()} עסקאות תקינות (${pct(B.cm.fp / normals)}). בזיהוי הונאות זה בדרך כלל מחיר סביר, כי הונאה שפוספסה יקרה יותר מבדיקה מיותרת.`,
+    `המודל מבדיל היטב בין הונאה לעסקה תקינה: <b>ROC AUC <span class="ltr">${f3(B.roc_auc)}</span></b> (1.0 הוא מושלם).`,
+    `מודל רגיל, בלי טיפול בחוסר האיזון, תפס רק <b>${R.cm.tp} מתוך ${ds.test_fraud}</b>.`,
+  ].map((s) => `<li><span>${s}</span></li>`).join("");
 
   // ---- Metrics at a threshold, from test probabilities
   const Y = D.test.y, P = D.test.p;
@@ -272,10 +448,10 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
 
   // ---- Generic line chart
   function lineChart(host, series, opts) {
-    const W = 520, H = 340, m = { l: 44, r: 12, t: 10, b: 40 };
+    const W = 520, H = 330, m = { l: 48, r: 14, t: 10, b: 44 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     host.innerHTML = "";
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.label, direction: "ltr" }, host);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.label }, host);
     svg.style.direction = "ltr";
     const g = el("g", { transform: `translate(${m.l},${m.t})` }, svg);
     const sx = (v) => v * iw, sy = (v) => ih - v * ih;
@@ -286,16 +462,15 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
       el("text", { x: sx(v), y: ih + 18, "text-anchor": "middle" }, g).textContent = v.toFixed(1);
     }
     el("line", { x1: 0, x2: iw, y1: ih, y2: ih, stroke: "var(--axis)" }, g);
-    el("text", { x: iw / 2, y: ih + 34, "text-anchor": "middle" }, g).textContent = opts.xLabel;
-    const yl = el("text", { transform: `translate(-34,${ih / 2}) rotate(-90)`, "text-anchor": "middle" }, g);
-    yl.textContent = opts.yLabel;
+    el("text", { x: iw / 2, y: ih + 38, "text-anchor": "middle", class: "lbl" }, g).textContent = opts.xLabel;
+    el("text", { transform: `translate(-36,${ih / 2}) rotate(-90)`, "text-anchor": "middle", class: "lbl" }, g).textContent = opts.yLabel;
     if (opts.diagonal) el("line", { x1: 0, y1: ih, x2: iw, y2: 0, stroke: "var(--axis)", "stroke-dasharray": "4 4" }, g);
     for (const s of series) {
       const d = s.x.map((x, i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(s.y[i]).toFixed(1)}`).join("");
-      el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2.2, "stroke-linejoin": "round" }, g);
     }
     const vline = el("line", { y1: 0, y2: ih, stroke: "var(--ink-2)", "stroke-width": 1, opacity: 0 }, g);
-    const dots = series.map((s) => el("circle", { r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, opacity: 0 }, g));
+    const dots = series.map((s) => el("circle", { r: 4.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, opacity: 0 }, g));
     const hit = el("rect", { width: iw, height: ih, fill: "transparent" }, g);
     hit.addEventListener("mousemove", (e) => {
       const r = hit.getBoundingClientRect();
@@ -304,9 +479,9 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
       const rows = series.map((s, k) => {
         let j = 0; while (j < s.x.length - 1 && s.x[j + 1] <= xv) j++;
         dots[k].setAttribute("cx", sx(s.x[j])); dots[k].setAttribute("cy", sy(s.y[j])); dots[k].setAttribute("opacity", 1);
-        return `<div>${s.name}: <b class="ltr">${s.y[j].toFixed(3)}</b></div>`;
+        return `<div><span style="color:${s.color}">●</span> ${s.name}: <b class="ltr">${f3(s.y[j])}</b></div>`;
       });
-      showTip(e, `<div>${opts.xLabel}: <b class="ltr">${xv.toFixed(2)}</b></div>` + rows.join(""));
+      showTip(e, `<div style="color:var(--ink-2)">${opts.xLabel}: <b class="ltr">${xv.toFixed(2)}</b></div>` + rows.join(""));
     });
     hit.addEventListener("mouseleave", () => { hideTip(); vline.setAttribute("opacity", 0); dots.forEach((d) => d.setAttribute("opacity", 0)); });
     return { g, sx, sy, ih };
@@ -314,9 +489,9 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
 
   // ---- ROC
   lineChart($("roc"), [
-    { name: `מאוזן (AUC ${D.balanced.roc_auc.toFixed(3)})`, x: D.roc.balanced.fpr, y: D.roc.balanced.tpr, color: "var(--s1)" },
-    { name: `רגיל (AUC ${D.baseline.roc_auc.toFixed(3)})`, x: D.roc.baseline.fpr, y: D.roc.baseline.tpr, color: "var(--s2)" },
-  ], { xLabel: "False Positive Rate", yLabel: "True Positive Rate (Recall)", diagonal: true, label: "עקומת ROC" });
+    { name: `מאוזן (AUC ${f3(B.roc_auc)})`, x: D.roc.balanced.fpr, y: D.roc.balanced.tpr, color: "var(--s1)" },
+    { name: `רגיל (AUC ${f3(R.roc_auc)})`, x: D.roc.baseline.fpr, y: D.roc.baseline.tpr, color: "var(--s2)" },
+  ], { xLabel: "שיעור התראות שווא (FPR)", yLabel: "שיעור הונאות שנתפסו (Recall)", diagonal: true, label: "עקומת ROC" });
 
   // ---- Threshold sweep
   const ts = [], rs = [], ps = [], fs = [];
@@ -324,35 +499,42 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   const sweep = lineChart($("sweep"), [
     { name: "Recall", x: ts, y: rs, color: "var(--s1)" },
     { name: "Precision", x: ts, y: ps, color: "var(--s2)" },
-    { name: "F1", x: ts, y: fs, color: "#1baf7a" },
-  ], { xLabel: "Threshold", yLabel: "ערך המדד", label: "מדדים לפי סף" });
-  const thrLine = el("line", { y1: 0, y2: sweep.ih, stroke: "var(--ink)", "stroke-width": 1.5, "stroke-dasharray": "3 3", "pointer-events": "none" }, sweep.g);
+    { name: "F1", x: ts, y: fs, color: "var(--s3)" },
+  ], { xLabel: "סף החלטה", yLabel: "ערך המדד", label: "מדדים לפי סף" });
+  const thrLine = el("line", { y1: 0, y2: sweep.ih, stroke: "var(--ink)", "stroke-width": 1.5, "stroke-dasharray": "4 3", "pointer-events": "none" }, sweep.g);
 
-  // ---- Comparison table
-  const rowsCmp = [["Recall", "recall"], ["Precision", "precision"], ["F1 Score", "f1"], ["ROC AUC", "roc_auc"], ["PR AUC", "pr_auc"]];
+  // ---- Comparison table (bold = better value in the row)
+  const cmpRows = [
+    ["Recall — הונאות שנתפסו", B.recall, R.recall, f3, true],
+    ["Precision — דיוק ההתראות", B.precision, R.precision, f3, true],
+    ["F1 Score", B.f1, R.f1, f3, true],
+    ["ROC AUC", B.roc_auc, R.roc_auc, f3, true],
+    ["PR AUC", B.pr_auc, R.pr_auc, f3, true],
+    ["הונאות שנתפסו", B.cm.tp, R.cm.tp, (v) => `${v} / ${ds.test_fraud}`, true],
+    ["התראות שווא", B.cm.fp, R.cm.fp, (v) => v, false],
+  ];
   $("cmp").innerHTML = `<thead><tr><th>מדד</th><th class="n">מאוזן</th><th class="n">רגיל</th></tr></thead><tbody>` +
-    rowsCmp.map(([n, k]) => `<tr><td>${n}</td><td class="n">${D.balanced[k].toFixed(3)}</td><td class="n">${D.baseline[k].toFixed(3)}</td></tr>`).join("") +
-    `<tr><td>הונאות שנתפסו</td><td class="n">${D.balanced.cm.tp} / ${ds.test_fraud}</td><td class="n">${D.baseline.cm.tp} / ${ds.test_fraud}</td></tr>` +
-    `<tr><td>התראות שווא</td><td class="n">${D.balanced.cm.fp}</td><td class="n">${D.baseline.cm.fp}</td></tr></tbody>`;
+    cmpRows.map(([n, a, b, fmt, higher]) => {
+      const aw = higher ? a > b : a < b, bw = higher ? b > a : b < a;
+      return `<tr><td>${n}</td><td class="n${aw ? " win" : ""}">${fmt(a)}</td><td class="n${bw ? " win" : ""}">${fmt(b)}</td></tr>`;
+    }).join("") + `</tbody>`;
 
   // ---- Split checks
   const C = D.checks;
-  const ok = (pass) => pass ? `<span style="color:var(--good)">✓ תקין</span>` : `<span style="color:var(--critical)">✗ בעיה</span>`;
-  $("checks").innerHTML = `<thead><tr><th>בדיקה</th><th class="n">תוצאה</th><th>סטטוס</th></tr></thead><tbody>` + [
+  const ok = (pass) => pass ? `<span class="ok">✓ תקין</span>` : `<span class="fail">✗ בעיה</span>`;
+  $("checks").innerHTML = `<thead><tr><th>בדיקה</th><th class="n">תוצאה</th><th class="n">סטטוס</th></tr></thead><tbody>` + [
     ["מזהי עסקה כפולים", C.dup_ids, C.dup_ids === 0],
     ["שורות זהות בנתונים", C.dup_rows, C.dup_rows === 0],
-    ["שורות שמופיעות גם באימון וגם במבחן", C.index_overlap, C.index_overlap === 0],
-    ["שורות במבחן שזהות לשורה באימון", C.test_rows_in_train, C.test_rows_in_train === 0],
+    ["עסקאות שמופיעות גם באימון וגם במבחן", C.index_overlap, C.index_overlap === 0],
+    ["עסקאות במבחן שזהות לעסקה באימון", C.test_rows_in_train, C.test_rows_in_train === 0],
     ["שיעור הונאות: אימון / מבחן", `${pct(C.train_fraud_rate, 2)} / ${pct(C.test_fraud_rate, 2)}`, Math.abs(C.train_fraud_rate - C.test_fraud_rate) < 0.002],
-  ].map(([l, v, p]) => `<tr><td>${l}</td><td class="n ltr">${v}</td><td>${ok(p)}</td></tr>`).join("") +
-  `</tbody>`;
-  $("checks").insertAdjacentHTML("afterend", `<p class="sub" style="margin-top:10px">עמודת <span class="ltr">transaction_id</span> לא משמשת כמשתנה במודל, כדי שלא תיכנס דרכה זליגת מידע. החלוקה מרובדת (<span class="ltr">stratify</span>), ולכן שיעור ההונאות זהה בשתי הקבוצות.</p>`);
+  ].map(([l, v, p]) => `<tr><td>${l}</td><td class="n ltr">${v}</td><td class="n">${ok(p)}</td></tr>`).join("") + `</tbody>`;
 
-  // ---- Stability strip plot (one row per metric, 0..1 scale)
+  // ---- Stability strip plot
   (function stabChart() {
     const S = D.stability;
     const mets = [["Recall", "recall"], ["Precision", "precision"], ["F1", "f1"], ["ROC AUC", "roc_auc"]];
-    const W = 520, row = 44, m = { l: 80, r: 14, t: 6, b: 26 };
+    const W = 520, row = 46, m = { l: 82, r: 14, t: 6, b: 28 };
     const H = m.t + m.b + mets.length * row, iw = W - m.l - m.r;
     const sx = (v) => v * iw;
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "יציבות המדדים" }, $("stab"));
@@ -362,7 +544,7 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
     for (let i = 0; i <= 5; i++) {
       const v = i / 5;
       el("line", { x1: sx(v), x2: sx(v), y1: 0, y2: ih, stroke: "var(--grid)" }, g);
-      el("text", { x: sx(v), y: ih + 16, "text-anchor": "middle" }, g).textContent = v.toFixed(1);
+      el("text", { x: sx(v), y: ih + 18, "text-anchor": "middle" }, g).textContent = v.toFixed(1);
     }
     const dot = (cx, cy, fill, html) => {
       const c = el("circle", { cx, cy, r: 5, fill, stroke: "var(--surface)", "stroke-width": 2 }, g);
@@ -372,88 +554,123 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
     };
     mets.forEach(([label, k], i) => {
       const y0 = i * row;
-      el("text", { x: -10, y: y0 + row / 2 + 4, "text-anchor": "end" }, g).textContent = label;
-      const cur = D.balanced[k];
+      if (i) el("line", { x1: -m.l, x2: iw, y1: y0, y2: y0, stroke: "var(--grid)" }, g);
+      el("text", { x: -10, y: y0 + row / 2 + 4, "text-anchor": "end", class: "lbl" }, g).textContent = label;
+      const cur = B[k];
       el("line", { x1: sx(cur), x2: sx(cur), y1: y0 + 6, y2: y0 + row - 6, stroke: "var(--ink)", "stroke-width": 2 }, g);
       S.splits.forEach((r) => dot(sx(r[k]), y0 + row / 2 - 7, "var(--s1)",
-        `חלוקה אקראית (seed ${r.seed})<div>${label}: <b class="ltr">${r[k].toFixed(3)}</b></div>`));
+        `חלוקה אקראית מס' ${r.seed + 1}<div>${label}: <b class="ltr">${f3(r[k])}</b></div>`));
       S.folds.forEach((r) => dot(sx(r[k]), y0 + row / 2 + 7, "var(--s2)",
-        `CV קבוצה ${r.fold}<div>${label}: <b class="ltr">${r[k].toFixed(3)}</b></div>`));
+        `CV קבוצה ${r.fold}<div>${label}: <b class="ltr">${f3(r[k])}</b></div>`));
     });
-    const ms = (o) => `${o.mean.toFixed(3)} ± ${o.std.toFixed(3)}`;
-    $("stabTbl").innerHTML = `<thead><tr><th>מדד</th><th class="n">החלוקה בדשבורד</th><th class="n">10 חלוקות</th><th class="n">5-Fold CV</th></tr></thead><tbody>` +
-      mets.map(([l, k]) => `<tr><td>${l}</td><td class="n">${D.balanced[k].toFixed(3)}</td><td class="n ltr">${ms(S.splits_summary[k])}</td><td class="n ltr">${ms(S.cv_summary[k])}</td></tr>`).join("") + `</tbody>`;
-    $("stabTbl").insertAdjacentHTML("afterend", `<p class="sub" style="margin-top:10px">במבחן יש רק ${ds.test_fraud} הונאות, ולכן כל הונאה שמפוספסת מזיזה את ה‑Recall בכ‑${pct(1 / ds.test_fraud, 1)}. ה‑ROC AUC כמעט לא משתנה בין ההרצות, ולכן הוא המדד היציב ביותר.</p>`);
+    const ms = (o) => `${f3(o.mean)} ± ${f3(o.std)}`;
+    $("stabTbl").innerHTML = `<thead><tr><th>מדד</th><th class="n">בדשבורד</th><th class="n">10 חלוקות</th><th class="n">5‑Fold CV</th></tr></thead><tbody>` +
+      mets.map(([l, k]) => `<tr><td>${l}</td><td class="n">${f3(B[k])}</td><td class="n ltr">${ms(S.splits_summary[k])}</td><td class="n ltr">${ms(S.cv_summary[k])}</td></tr>`).join("") + `</tbody>`;
+    $("stabHow").innerHTML = `<b>מסקנה:</b> הנקודות צפופות סביב הקו השחור, כלומר התוצאה לא תלויה בהגרלה. במבחן יש רק ${ds.test_fraud} הונאות, ולכן כל הונאה שמפוספסת מזיזה את ה‑Recall בכ‑${pct(1 / ds.test_fraud, 1)}.`;
   })();
 
-  // ---- Coefficients (diverging bars)
+  // ---- Coefficients (diverging bars) + plain-language drivers
   (function coefChart() {
     const cs = [...D.coefficients].sort((a, b) => b.coef - a.coef);
-    const W = 520, row = 26, m = { l: 190, r: 40, t: 6, b: 6 };
+    const W = 520, row = 30, m = { l: 150, r: 14, t: 4, b: 4 };
     const H = m.t + m.b + cs.length * row, iw = W - m.l - m.r;
     const max = Math.max(...cs.map((c) => Math.abs(c.coef)));
-    const sx = (v) => iw / 2 + (v / max) * (iw / 2);
+    const sx = (v) => iw / 2 + (v / max) * (iw / 2 - 36);
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "מקדמי המודל" }, $("coef"));
     svg.style.direction = "ltr";
     const g = el("g", { transform: `translate(${m.l},${m.t})` }, svg);
     cs.forEach((c, i) => {
       const y = i * row, x0 = sx(0), x1 = sx(c.coef);
-      el("text", { x: -8, y: y + row / 2 + 4, "text-anchor": "end" }, g).textContent = c.feature.replace("merchant_category=", "cat: ");
-      const bar = el("rect", { x: Math.min(x0, x1), y: y + 6, width: Math.max(1, Math.abs(x1 - x0)), height: row - 12, rx: 3,
+      el("text", { x: -10, y: y + row / 2 + 5, "text-anchor": "end", class: "lbl" }, g).textContent = featName(c.feature);
+      el("rect", { x: Math.min(x0, x1), y: y + 7, width: Math.max(1, Math.abs(x1 - x0)), height: row - 14, rx: 4,
         fill: c.coef >= 0 ? "var(--pos)" : "var(--neg)" }, g);
-      // value label sits on the far side of the zero line from the bar, so it never hits the feature names
-      el("text", { x: c.coef >= 0 ? x1 + 4 : x0 + 4, y: y + row / 2 + 4, "text-anchor": "start" }, g).textContent = c.coef.toFixed(2);
+      el("text", { x: c.coef >= 0 ? x1 + 5 : x1 - 5, y: y + row / 2 + 4, "text-anchor": c.coef >= 0 ? "start" : "end" }, g).textContent = c.coef.toFixed(2);
       const hit = el("rect", { x: -m.l, y, width: W, height: row, fill: "transparent" }, g);
-      hit.addEventListener("mousemove", (e) => showTip(e, `<b class="ltr">${c.feature}</b><div>מקדם: <b class="ltr">${c.coef.toFixed(3)}</b></div><div>Odds ratio: <b class="ltr">${Math.exp(c.coef).toFixed(2)}</b></div>`));
+      hit.addEventListener("mousemove", (e) => showTip(e, `<b>${featName(c.feature)}</b> <span class="ltr" style="color:var(--muted)">(${c.feature})</span><div>מקדם: <b class="ltr">${f3(c.coef)}</b></div><div>יחס סיכויים (Odds ratio): <b class="ltr">×${Math.exp(c.coef).toFixed(2)}</b></div>`));
       hit.addEventListener("mouseleave", hideTip);
     });
     el("line", { x1: sx(0), x2: sx(0), y1: 0, y2: cs.length * row, stroke: "var(--axis)" }, g);
+
+    const k = Object.fromEntries(D.coefficients.map((c) => [c.feature, c.coef]));
+    $("drivers").innerHTML = [
+      `<b>ציון אמון נמוך במכשיר</b> הוא סימן האזהרה החזק ביותר.`,
+      `<b>שעות מוקדמות</b> (לילה) מעלות את הסיכון: ככל שהשעה מאוחרת יותר ביום, הסיכון יורד.`,
+      `<b>הרבה עסקאות ב‑24 שעות</b>, <b>אי‑התאמת מיקום</b> ו<b>עסקה בחו"ל</b> מעלות את הסיכון בצורה משמעותית.`,
+      `<b>סכום גבוה</b> מעלה את הסיכון, אבל פחות מהגורמים שלמעלה.`,
+      `<b>סוג בית העסק</b> משפיע מעט יחסית (אלקטרוניקה מעט מסוכנת יותר, ביגוד מעט פחות).`,
+    ].map((s) => `<li>${s}</li>`).join("");
   })();
 
   // ---- Threshold-driven views
+  const thr = $("thr");
   function render(t) {
     const m = at(t);
     $("thrOut").textContent = t.toFixed(3);
+    $("thrDefault").setAttribute("aria-pressed", Math.abs(t - 0.5) < 1e-9);
+    $("thrBest").setAttribute("aria-pressed", Math.abs(t - D.best_f1_threshold) < 1e-9);
     const x = sweep.sx(t); thrLine.setAttribute("x1", x); thrLine.setAttribute("x2", x);
+
     const kp = [
-      ["Recall", m.recall, `נתפסו ${m.tp} מתוך ${m.tp + m.fn} הונאות`],
-      ["Precision", m.precision, `${m.tp} הונאות אמיתיות מתוך ${m.tp + m.fp} התראות`],
-      ["F1 Score", m.f1, "ממוצע הרמוני של Precision ו‑Recall"],
-      ["ROC AUC", D.balanced.roc_auc, "לא תלוי בסף · יכולת הפרדה כללית"],
+      ["Recall", "רגישות", "כמה מההונאות המודל תפס?", m.recall, `<b>${m.tp}</b> מתוך ${m.tp + m.fn} הונאות נתפסו`],
+      ["Precision", "דיוק", "כמה מההתראות היו הונאה אמיתית?", m.precision, `<b>${m.tp}</b> הונאות אמיתיות מתוך ${m.tp + m.fp} התראות`],
+      ["F1 Score", "", "ציון אחד שמאזן בין השניים", m.f1, "ממוצע הרמוני של Recall ו‑Precision"],
+      ["ROC AUC", "", "עד כמה המודל מבדיל בין הונאה לתקינה?", B.roc_auc, "לא תלוי בסף · 1.0 הוא מושלם"],
     ];
-    $("kpis").innerHTML = kp.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l} · <span class="ltr">Test (20%)</span></div><div class="value ltr">${v.toFixed(3)}</div><div class="note">${n}</div></div>`).join("");
-    $("cmSub").textContent = `נתוני מבחן, סף ${t.toFixed(3)}. השורות הן המצב האמיתי והעמודות הן החיזוי.`;
+    $("kpis").innerHTML = kp.map(([n, he, q, v, note]) => `
+      <div class="card kpi">
+        <div class="name">${n}${he ? ` <small>· ${he}</small>` : ""}</div>
+        <div class="q">${q}</div>
+        <div class="value ltr num">${f3(v)}</div>
+        <div class="meter"><i style="width:${(v * 100).toFixed(1)}%"></i></div>
+        <div class="note">${note}</div>
+      </div>`).join("");
+
+    $("cmSub").textContent = `2,000 עסקאות המבחן, בסף ${t.toFixed(3)}.`;
     const mx = Math.max(m.tn, m.fp, m.fn, m.tp);
-    const cell = (v, lbl, bad) => `<div class="cell${bad ? " bad" : ""}" style="background:color-mix(in srgb, var(--cell-2) ${Math.round(20 + 80 * Math.sqrt(v / mx))}%, var(--surface))"><b>${v}</b>${lbl}</div>`;
-    $("cm").innerHTML = `<div></div><div class="h">חיזוי: תקין</div><div class="h">חיזוי: הונאה</div>` +
-      `<div class="h">אמיתי: תקין</div>${cell(m.tn, "TN")}${cell(m.fp, "FP · התראת שווא")}` +
-      `<div class="h">אמיתי: הונאה</div>${cell(m.fn, "FN · הונאה שפוספסה", m.fn > 0)}${cell(m.tp, "TP")}`;
+    const cell = (v, title, cls) => `<div class="cell ${cls || ""}" style="background:color-mix(in srgb, var(--cell) ${Math.round(15 + 70 * Math.sqrt(v / mx))}%, var(--surface))"><b>${v.toLocaleString()}</b><span>${title}</span></div>`;
+    $("cm").innerHTML =
+      `<div></div><div class="h">המודל אמר: תקינה</div><div class="h">המודל אמר: הונאה</div>` +
+      `<div class="h">בפועל: תקינה</div>${cell(m.tn, "✓ זוהו נכון כתקינות")}${cell(m.fp, "התראות שווא", "warn")}` +
+      `<div class="h">בפועל: הונאה</div>${cell(m.fn, "✗ הונאות שפוספסו", m.fn ? "bad" : "")}${cell(m.tp, "✓ הונאות שנתפסו")}`;
+    $("cmHow").innerHTML = `<b>איך לקרוא:</b> התאים עם ✓ הם החלטות נכונות. המסגרת האדומה היא הטעות היקרה, הונאה שעברה בלי לזהות (${m.fn}). המסגרת המקווקווה היא התראות שווא (${m.fp}): עסקה תקינה שנשלחה לבדיקה.`;
     predict();
   }
-  const thr = $("thr");
   thr.oninput = () => render(+thr.value);
   $("thrDefault").onclick = () => { thr.value = 0.5; render(0.5); };
+  $("thrBest").onclick = () => { const t = D.best_f1_threshold; thr.value = t; render(t); };
   const bm = D.best_f1_metrics;
-  $("bestNote").innerHTML = `הסף המיטבי (<b class="ltr">${D.best_f1_threshold.toFixed(3)}</b>) נבחר ב‑5-Fold CV על נתוני ה‑Train בלבד (F1 ב‑CV: <span class="ltr">${D.best_f1_cv_f1.toFixed(3)}</span>), ונתוני ה‑Test לא שימשו לכוונון. התוצאה שלו על ה‑Test: Recall <span class="ltr">${bm.recall.toFixed(3)}</span> · Precision <span class="ltr">${bm.precision.toFixed(3)}</span> · F1 <span class="ltr">${bm.f1.toFixed(3)}</span>.`;
-  $("thrBest").onclick =() => { const t = D.best_f1_threshold; thr.value = t; render(t); };
+  $("thrBest").title = `הסף ${f3(D.best_f1_threshold)} נבחר ב‑5‑Fold CV על נתוני האימון בלבד. על המבחן: Recall ${f3(bm.recall)} · Precision ${f3(bm.precision)} · F1 ${f3(bm.f1)}`;
 
   // ---- Live predictor (same pipeline as Python: standardise + one-hot + sigmoid)
   const M = D.model;
-  $("catSel").innerHTML = M.categories.map((c) => `<option ${c === "Electronics" ? "selected" : ""}>${c}</option>`).join("");
+  $("catSel").innerHTML = M.categories.map((c) => `<option value="${c}">${CAT_HE[c] || c}</option>`).join("");
   const coefMap = Object.fromEntries(D.coefficients.map((c) => [c.feature, c.coef]));
+  const PRESETS = {
+    normal: { amount: 120, transaction_hour: 14, foreign_transaction: 0, location_mismatch: 0, device_trust_score: 78, velocity_last_24h: 2, cardholder_age: 42, merchant_category: "Grocery" },
+    suspicious: { amount: 850, transaction_hour: 2, foreign_transaction: 1, location_mismatch: 1, device_trust_score: 25, velocity_last_24h: 6, cardholder_age: 35, merchant_category: "Electronics" },
+  };
+  function applyPreset(name) {
+    const f = $("pred");
+    for (const [k, v] of Object.entries(PRESETS[name])) f.elements[k].value = v;
+    predict();
+  }
+  document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => applyPreset(b.dataset.preset)));
   function predict() {
     const f = new FormData($("pred"));
     let z = M.intercept;
     M.numeric.forEach((k, i) => { z += coefMap[k] * ((+f.get(k) || 0) - M.mean[i]) / M.scale[i]; });
     z += coefMap["merchant_category=" + f.get("merchant_category")] || 0;
     const p = 1 / (1 + Math.exp(-z)), t = +thr.value, hi = p >= t;
-    $("riskP").textContent = pct(p, 1);
+    $("riskP").textContent = p < 0.001 ? "<0.1%" : pct(p, 1);
     $("riskB").className = "badge " + (hi ? "hi" : "lo");
-    $("riskB").textContent = hi ? "⚠ חשד להונאה" : "✓ עסקה תקינה";
+    $("riskB").textContent = hi ? "⚠ תסומן כחשד להונאה" : "✓ תעבור כעסקה תקינה";
     $("riskBar").style.width = (p * 100).toFixed(1) + "%";
+    $("riskThr").style.left = (t * 100).toFixed(1) + "%";
+    $("riskExpl").textContent = `הקו האנכי הוא הסף הנוכחי (${t.toFixed(3)}). עסקה שהסיכוי שלה מעל הסף מסומנת כחשודה.`;
   }
   $("pred").addEventListener("input", predict);
 
+  applyPreset("normal");
   render(0.5);
 })();
 </script>
