@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraud Detection Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --neg: #2a78d6;
+  --pos: #e34948;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --cell-1: #cde2fb;
+  --cell-2: #86b6ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --neg: #3987e5; --pos: #e66767;
+    --cell-1: #184f95; --cell-2: #104281;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --neg: #3987e5; --pos: #e66767;
+  --cell-1: #184f95; --cell-2: #104281;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+header p { margin: 0; color: var(--ink-2); }
+.grid { display: grid; gap: 16px; margin-top: 20px; }
+.kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .two { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  min-width: 0;
+}
+.card h2 { margin: 0 0 4px; font-size: 1rem; }
+.card .sub { margin: 0 0 12px; color: var(--ink-2); font-size: .85rem; }
+.kpi .label { color: var(--ink-2); font-size: .85rem; }
+.kpi .value { font-size: 2.1rem; font-weight: 650; line-height: 1.2; }
+.kpi .note { color: var(--muted); font-size: .8rem; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--ink-2); font-size: .9rem; margin-top: 12px; }
+.facts b { color: var(--ink); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.controls input[type=range] { flex: 1; min-width: 180px; accent-color: var(--s1); }
+.controls output { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 3.5em; }
+button {
+  font: inherit; font-size: .85rem; color: var(--ink); background: transparent;
+  border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; cursor: pointer;
+}
+button:hover { background: var(--grid); }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.legend { display: flex; gap: 16px; font-size: .85rem; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 12px; height: 3px; border-radius: 2px; background: var(--c); margin-inline-end: 6px; vertical-align: middle; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: 8px; border-bottom: 1px solid var(--grid); text-align: start; }
+td.n, th.n { font-variant-numeric: tabular-nums; text-align: end; }
+th { color: var(--ink-2); font-weight: 600; }
+.cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; font-size: .85rem; }
+.cm div { padding: 10px; border-radius: 6px; text-align: center; }
+.cm .h { color: var(--ink-2); }
+.cm .cell { color: var(--ink); background: var(--cell-1); }
+.cm .cell.bad { outline: 2px solid var(--critical); outline-offset: -2px; }
+.cm .cell b { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.tip {
+  position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: .8rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; z-index: 10; direction: rtl;
+}
+form.pred { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px; }
+form.pred label { display: flex; flex-direction: column; font-size: .8rem; color: var(--ink-2); gap: 2px; }
+form.pred input, form.pred select {
+  font: inherit; color: var(--ink); background: var(--page); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px;
+}
+.risk { margin-top: 14px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.risk .big { font-size: 2.2rem; font-weight: 650; }
+.badge { font-size: .85rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.badge.hi { color: var(--critical); }
+.badge.lo { color: var(--good); }
+.bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.bar > i { display: block; height: 100%; background: var(--critical); border-radius: 4px; }
+footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
+.ltr { direction: ltr; unicode-bidi: isolate; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap">
+      <div>
+        <h1>זיהוי הונאות בכרטיסי אשראי — רגרסיה לוגיסטית</h1>
+        <p>המודל חוזה את הסיכוי שעסקה היא הונאה. הנתונים לא מאוזנים, ולכן המודל אומן עם <span class="ltr">class_weight="balanced"</span>.</p>
+      </div>
+      <button id="themeBtn" type="button">מצב כהה/בהיר</button>
+    </div>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section class="card" style="margin-top:20px">
+    <div class="controls">
+      <label for="thr"><b>סף החלטה (Threshold)</b></label>
+      <input id="thr" type="range" min="0.01" max="0.99" step="0.01" value="0.5">
+      <output id="thrOut" class="ltr">0.50</output>
+      <button type="button" id="thrDefault">0.50</button>
+      <button type="button" id="thrBest">סף F1 מיטבי</button>
+    </div>
+    <p class="sub" style="margin:8px 0 0">עסקה מסווגת כהונאה כשההסתברות שהמודל נותן לה גבוהה מהסף. סף נמוך מגדיל Recall (תופסים יותר הונאות) ומוריד Precision (יותר התראות שווא).</p>
+  </section>
+
+  <section class="grid kpis" id="kpis"></section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>עקומת ROC — נתוני מבחן (20%)</h2>
+      <p class="sub">השוואה בין מודל מאוזן למודל רגיל, ללא שקלול מחלקות</p>
+      <div class="legend">
+        <span style="--c:var(--s1)">מאוזן (balanced)</span>
+        <span style="--c:var(--s2)">רגיל (ללא שקלול)</span>
+      </div>
+      <div id="roc"></div>
+    </div>
+    <div class="card">
+      <h2>Precision, Recall ו‑F1 לפי סף</h2>
+      <p class="sub">המודל המאוזן. הקו האנכי מסמן את הסף שנבחר.</p>
+      <div class="legend">
+        <span style="--c:var(--s1)">Recall</span>
+        <span style="--c:var(--s2)">Precision</span>
+        <span style="--c:#1baf7a">F1</span>
+      </div>
+      <div id="sweep"></div>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>מטריצת בלבול (Confusion Matrix)</h2>
+      <p class="sub" id="cmSub"></p>
+      <div class="cm" id="cm"></div>
+    </div>
+    <div class="card">
+      <h2>השוואה: מאוזן מול רגיל (סף 0.5)</h2>
+      <p class="sub">המודל הרגיל מפספס הונאות רבות, כי רוב הדוגמאות הן עסקאות תקינות.</p>
+      <table id="cmp"></table>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>מקדמי המודל</h2>
+      <p class="sub">על משתנים מתוקננים. ערך חיובי מעלה את סיכוי ההונאה, ערך שלילי מוריד אותו.</p>
+      <div id="coef"></div>
+    </div>
+    <div class="card">
+      <h2>חיזוי עסקה חדשה</h2>
+      <p class="sub">הזינו פרטי עסקה כדי לקבל את סיכוי ההונאה לפי המודל המאוזן.</p>
+      <form class="pred" id="pred">
+        <label>סכום (amount)<input name="amount" type="number" step="0.01" value="850"></label>
+        <label>שעה (0–23)<input name="transaction_hour" type="number" min="0" max="23" value="2"></label>
+        <label>עסקה בחו"ל<select name="foreign_transaction"><option value="0">לא</option><option value="1" selected>כן</option></select></label>
+        <label>אי‑התאמת מיקום<select name="location_mismatch"><option value="0">לא</option><option value="1" selected>כן</option></select></label>
+        <label>ציון אמון במכשיר (0–100)<input name="device_trust_score" type="number" min="0" max="100" value="25"></label>
+        <label>עסקאות ב‑24 שעות<input name="velocity_last_24h" type="number" min="0" value="6"></label>
+        <label>גיל בעל הכרטיס<input name="cardholder_age" type="number" min="18" max="100" value="35"></label>
+        <label>קטגוריית בית עסק<select name="merchant_category" id="catSel"></select></label>
+      </form>
+      <div class="risk"><span class="big ltr" id="riskP">–</span><span class="badge" id="riskB"></span></div>
+      <div class="bar"><i id="riskBar" style="width:0"></i></div>
+    </div>
+  </section>
+
+  <footer>
+    מודל: LogisticRegression (scikit-learn), StandardScaler + OneHotEncoder. חלוקה אקראית ומרובדת 80/20 (random_state=42).
+    כל המדדים מחושבים על נתוני המבחן בלבד.
+  </footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script src="data.js"></script>
+<script>
+(() => {
+  const D = window.MODEL_DATA;
+  const $ = (id) => document.getElementById(id);
+  const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const NS = "http://www.w3.org/2000/svg";
+  const tip = $("tip");
+
+  // Theme toggle
+  $("themeBtn").onclick = () => {
+    const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+  };
+
+  function showTip(e, html) {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+  }
+  const hideTip = () => (tip.style.opacity = 0);
+
+  function el(tag, attrs, parent) {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  // ---- Dataset facts
+  const ds = D.dataset;
+  $("facts").innerHTML = [
+    ["סה\"כ עסקאות", ds.rows.toLocaleString()],
+    ["הונאות", `${ds.fraud} (${pct(ds.fraud_rate, 2)})`],
+    ["Train (80%)", `${ds.train_rows.toLocaleString()} · ${ds.train_fraud} הונאות`],
+    ["Test (20%)", `${ds.test_rows.toLocaleString()} · ${ds.test_fraud} הונאות`],
+  ].map(([k, v]) => `<span>${k}: <b class="ltr">${v}</b></span>`).join("");
+
+  // ---- Metrics at a threshold, from test probabilities
+  const Y = D.test.y, P = D.test.p;
+  function at(t) {
+    let tp = 0, fp = 0, fn = 0, tn = 0;
+    for (let i = 0; i < Y.length; i++) {
+      const pr = P[i] >= t ? 1 : 0;
+      if (pr && Y[i]) tp++; else if (pr) fp++; else if (Y[i]) fn++; else tn++;
+    }
+    const precision = tp + fp ? tp / (tp + fp) : 0;
+    const recall = tp + fn ? tp / (tp + fn) : 0;
+    const f1 = precision + recall ? 2 * precision * recall / (precision + recall) : 0;
+    return { tp, fp, fn, tn, precision, recall, f1 };
+  }
+
+  // ---- Generic line chart
+  function lineChart(host, series, opts) {
+    const W = 520, H = 340, m = { l: 44, r: 12, t: 10, b: 40 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    host.innerHTML = "";
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.label, direction: "ltr" }, host);
+    svg.style.direction = "ltr";
+    const g = el("g", { transform: `translate(${m.l},${m.t})` }, svg);
+    const sx = (v) => v * iw, sy = (v) => ih - v * ih;
+    for (let i = 0; i <= 5; i++) {
+      const v = i / 5;
+      el("line", { x1: 0, x2: iw, y1: sy(v), y2: sy(v), stroke: "var(--grid)" }, g);
+      el("text", { x: -8, y: sy(v) + 4, "text-anchor": "end" }, g).textContent = v.toFixed(1);
+      el("text", { x: sx(v), y: ih + 18, "text-anchor": "middle" }, g).textContent = v.toFixed(1);
+    }
+    el("line", { x1: 0, x2: iw, y1: ih, y2: ih, stroke: "var(--axis)" }, g);
+    el("text", { x: iw / 2, y: ih + 34, "text-anchor": "middle" }, g).textContent = opts.xLabel;
+    const yl = el("text", { transform: `translate(-34,${ih / 2}) rotate(-90)`, "text-anchor": "middle" }, g);
+    yl.textContent = opts.yLabel;
+    if (opts.diagonal) el("line", { x1: 0, y1: ih, x2: iw, y2: 0, stroke: "var(--axis)", "stroke-dasharray": "4 4" }, g);
+    for (const s of series) {
+      const d = s.x.map((x, i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(s.y[i]).toFixed(1)}`).join("");
+      el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+    }
+    const vline = el("line", { y1: 0, y2: ih, stroke: "var(--ink-2)", "stroke-width": 1, opacity: 0 }, g);
+    const dots = series.map((s) => el("circle", { r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, opacity: 0 }, g));
+    const hit = el("rect", { width: iw, height: ih, fill: "transparent" }, g);
+    hit.addEventListener("mousemove", (e) => {
+      const r = hit.getBoundingClientRect();
+      const xv = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      vline.setAttribute("x1", sx(xv)); vline.setAttribute("x2", sx(xv)); vline.setAttribute("opacity", 1);
+      const rows = series.map((s, k) => {
+        let j = 0; while (j < s.x.length - 1 && s.x[j + 1] <= xv) j++;
+        dots[k].setAttribute("cx", sx(s.x[j])); dots[k].setAttribute("cy", sy(s.y[j])); dots[k].setAttribute("opacity", 1);
+        return `<div>${s.name}: <b class="ltr">${s.y[j].toFixed(3)}</b></div>`;
+      });
+      showTip(e, `<div>${opts.xLabel}: <b class="ltr">${xv.toFixed(2)}</b></div>` + rows.join(""));
+    });
+    hit.addEventListener("mouseleave", () => { hideTip(); vline.setAttribute("opacity", 0); dots.forEach((d) => d.setAttribute("opacity", 0)); });
+    return { g, sx, sy, ih };
+  }
+
+  // ---- ROC
+  lineChart($("roc"), [
+    { name: `מאוזן (AUC ${D.balanced.roc_auc.toFixed(3)})`, x: D.roc.balanced.fpr, y: D.roc.balanced.tpr, color: "var(--s1)" },
+    { name: `רגיל (AUC ${D.baseline.roc_auc.toFixed(3)})`, x: D.roc.baseline.fpr, y: D.roc.baseline.tpr, color: "var(--s2)" },
+  ], { xLabel: "False Positive Rate", yLabel: "True Positive Rate (Recall)", diagonal: true, label: "עקומת ROC" });
+
+  // ---- Threshold sweep
+  const ts = [], rs = [], ps = [], fs = [];
+  for (let t = 0.01; t <= 0.995; t += 0.01) { const m = at(t); ts.push(+t.toFixed(2)); rs.push(m.recall); ps.push(m.precision); fs.push(m.f1); }
+  const sweep = lineChart($("sweep"), [
+    { name: "Recall", x: ts, y: rs, color: "var(--s1)" },
+    { name: "Precision", x: ts, y: ps, color: "var(--s2)" },
+    { name: "F1", x: ts, y: fs, color: "#1baf7a" },
+  ], { xLabel: "Threshold", yLabel: "ערך המדד", label: "מדדים לפי סף" });
+  const thrLine = el("line", { y1: 0, y2: sweep.ih, stroke: "var(--ink)", "stroke-width": 1.5, "stroke-dasharray": "3 3", "pointer-events": "none" }, sweep.g);
+
+  // ---- Comparison table
+  const rowsCmp = [["Recall", "recall"], ["Precision", "precision"], ["F1 Score", "f1"], ["ROC AUC", "roc_auc"], ["PR AUC", "pr_auc"]];
+  $("cmp").innerHTML = `<thead><tr><th>מדד</th><th class="n">מאוזן</th><th class="n">רגיל</th></tr></thead><tbody>` +
+    rowsCmp.map(([n, k]) => `<tr><td>${n}</td><td class="n">${D.balanced[k].toFixed(3)}</td><td class="n">${D.baseline[k].toFixed(3)}</td></tr>`).join("") +
+    `<tr><td>הונאות שנתפסו</td><td class="n">${D.balanced.cm.tp} / ${ds.test_fraud}</td><td class="n">${D.baseline.cm.tp} / ${ds.test_fraud}</td></tr>` +
+    `<tr><td>התראות שווא</td><td class="n">${D.balanced.cm.fp}</td><td class="n">${D.baseline.cm.fp}</td></tr></tbody>`;
+
+  // ---- Coefficients (diverging bars)
+  (function coefChart() {
+    const cs = [...D.coefficients].sort((a, b) => b.coef - a.coef);
+    const W = 520, row = 26, m = { l: 190, r: 40, t: 6, b: 6 };
+    const H = m.t + m.b + cs.length * row, iw = W - m.l - m.r;
+    const max = Math.max(...cs.map((c) => Math.abs(c.coef)));
+    const sx = (v) => iw / 2 + (v / max) * (iw / 2);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "מקדמי המודל" }, $("coef"));
+    svg.style.direction = "ltr";
+    const g = el("g", { transform: `translate(${m.l},${m.t})` }, svg);
+    cs.forEach((c, i) => {
+      const y = i * row, x0 = sx(0), x1 = sx(c.coef);
+      el("text", { x: -8, y: y + row / 2 + 4, "text-anchor": "end" }, g).textContent = c.feature.replace("merchant_category=", "cat: ");
+      const bar = el("rect", { x: Math.min(x0, x1), y: y + 6, width: Math.max(1, Math.abs(x1 - x0)), height: row - 12, rx: 3,
+        fill: c.coef >= 0 ? "var(--pos)" : "var(--neg)" }, g);
+      // value label sits on the far side of the zero line from the bar, so it never hits the feature names
+      el("text", { x: c.coef >= 0 ? x1 + 4 : x0 + 4, y: y + row / 2 + 4, "text-anchor": "start" }, g).textContent = c.coef.toFixed(2);
+      const hit = el("rect", { x: -m.l, y, width: W, height: row, fill: "transparent" }, g);
+      hit.addEventListener("mousemove", (e) => showTip(e, `<b class="ltr">${c.feature}</b><div>מקדם: <b class="ltr">${c.coef.toFixed(3)}</b></div><div>Odds ratio: <b class="ltr">${Math.exp(c.coef).toFixed(2)}</b></div>`));
+      hit.addEventListener("mouseleave", hideTip);
+    });
+    el("line", { x1: sx(0), x2: sx(0), y1: 0, y2: cs.length * row, stroke: "var(--axis)" }, g);
+  })();
+
+  // ---- Threshold-driven views
+  function render(t) {
+    const m = at(t);
+    $("thrOut").textContent = t.toFixed(2);
+    const x = sweep.sx(t); thrLine.setAttribute("x1", x); thrLine.setAttribute("x2", x);
+    const kp = [
+      ["Recall", m.recall, `נתפסו ${m.tp} מתוך ${m.tp + m.fn} הונאות`],
+      ["Precision", m.precision, `${m.tp} הונאות אמיתיות מתוך ${m.tp + m.fp} התראות`],
+      ["F1 Score", m.f1, "ממוצע הרמוני של Precision ו‑Recall"],
+      ["ROC AUC", D.balanced.roc_auc, "לא תלוי בסף · יכולת הפרדה כללית"],
+    ];
+    $("kpis").innerHTML = kp.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l}</div><div class="value ltr">${v.toFixed(3)}</div><div class="note">${n}</div></div>`).join("");
+    $("cmSub").textContent = `נתוני מבחן, סף ${t.toFixed(2)}. השורות הן המצב האמיתי והעמודות הן החיזוי.`;
+    const mx = Math.max(m.tn, m.fp, m.fn, m.tp);
+    const cell = (v, lbl, bad) => `<div class="cell${bad ? " bad" : ""}" style="background:color-mix(in srgb, var(--cell-2) ${Math.round(20 + 80 * Math.sqrt(v / mx))}%, var(--surface))"><b>${v}</b>${lbl}</div>`;
+    $("cm").innerHTML = `<div></div><div class="h">חיזוי: תקין</div><div class="h">חיזוי: הונאה</div>` +
+      `<div class="h">אמיתי: תקין</div>${cell(m.tn, "TN")}${cell(m.fp, "FP · התראת שווא")}` +
+      `<div class="h">אמיתי: הונאה</div>${cell(m.fn, "FN · הונאה שפוספסה", m.fn > 0)}${cell(m.tp, "TP")}`;
+    predict();
+  }
+  const thr = $("thr");
+  thr.oninput = () => render(+thr.value);
+  $("thrDefault").onclick = () => { thr.value = 0.5; render(0.5); };
+  $("thrBest").onclick = () => { const t = Math.min(0.99, +D.best_f1_threshold.toFixed(2)); thr.value = t; render(t); };
+
+  // ---- Live predictor (same pipeline as Python: standardise + one-hot + sigmoid)
+  const M = D.model;
+  $("catSel").innerHTML = M.categories.map((c) => `<option ${c === "Electronics" ? "selected" : ""}>${c}</option>`).join("");
+  const coefMap = Object.fromEntries(D.coefficients.map((c) => [c.feature, c.coef]));
+  function predict() {
+    const f = new FormData($("pred"));
+    let z = M.intercept;
+    M.numeric.forEach((k, i) => { z += coefMap[k] * ((+f.get(k) || 0) - M.mean[i]) / M.scale[i]; });
+    z += coefMap["merchant_category=" + f.get("merchant_category")] || 0;
+    const p = 1 / (1 + Math.exp(-z)), t = +thr.value, hi = p >= t;
+    $("riskP").textContent = pct(p, 1);
+    $("riskB").className = "badge " + (hi ? "hi" : "lo");
+    $("riskB").textContent = hi ? "⚠ חשד להונאה" : "✓ עסקה תקינה";
+    $("riskBar").style.width = (p * 100).toFixed(1) + "%";
+  }
+  $("pred").addEventListener("input", predict);
+
+  render(0.5);
+})();
+</script>
+</body>
+</html>
