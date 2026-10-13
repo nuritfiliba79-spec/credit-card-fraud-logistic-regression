@@ -22,7 +22,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -125,8 +125,13 @@ def main():
     m_bal = metrics(y_test, p_bal)
     m_base = metrics(y_test, p_base)
 
-    # Threshold that maximises F1 on the balanced model (reported, not used as default)
-    prec, rec, thr = precision_recall_curve(y_test, p_bal)
+    # Threshold that maximises F1, chosen on out-of-fold predictions from the TRAIN set only
+    # (5-fold stratified CV), so the test set is never used for tuning. Reported, not the default.
+    p_oof = cross_val_predict(
+        build_model("balanced"), X_train, y_train,
+        cv=StratifiedKFold(5, shuffle=True, random_state=SEED), method="predict_proba",
+    )[:, 1]
+    prec, rec, thr = precision_recall_curve(y_train, p_oof)
     f1s = 2 * prec[:-1] * rec[:-1] / np.clip(prec[:-1] + rec[:-1], 1e-12, None)
     best_thr = float(thr[np.argmax(f1s)])
 
@@ -156,6 +161,7 @@ def main():
         "balanced": m_bal,
         "baseline": m_base,
         "best_f1_threshold": best_thr,
+        "best_f1_cv_f1": float(f1s.max()),
         "best_f1_metrics": metrics(y_test, p_bal, best_thr),
         "roc": {
             "balanced": {"fpr": fpr.round(4).tolist(), "tpr": tpr.round(4).tolist()},

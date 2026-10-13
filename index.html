@@ -123,12 +123,13 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   <section class="card" style="margin-top:20px">
     <div class="controls">
       <label for="thr"><b>סף החלטה (Threshold)</b></label>
-      <input id="thr" type="range" min="0.01" max="0.99" step="0.01" value="0.5">
+      <input id="thr" type="range" min="0.01" max="0.99" step="0.001" value="0.5">
       <output id="thrOut" class="ltr">0.50</output>
       <button type="button" id="thrDefault">0.50</button>
-      <button type="button" id="thrBest">סף F1 מיטבי</button>
+      <button type="button" id="thrBest">סף F1 מיטבי (נבחר ב‑CV על Train)</button>
     </div>
     <p class="sub" style="margin:8px 0 0">עסקה מסווגת כהונאה כשההסתברות שהמודל נותן לה גבוהה מהסף. סף נמוך מגדיל Recall (תופסים יותר הונאות) ומוריד Precision (יותר התראות שווא).</p>
+    <p class="sub" id="bestNote" style="margin:4px 0 0"></p>
   </section>
 
   <section class="grid kpis" id="kpis"></section>
@@ -175,8 +176,8 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
       <table id="checks"></table>
     </div>
     <div class="card">
-      <h2>יציבות המודל — האם התוצאה תלויה בהגרלה?</h2>
-      <p class="sub">כל נקודה היא הרצה: 10 חלוקות אקראיות שונות של 80/20 ו‑5 קבוצות של Cross‑Validation. הקו השחור הוא החלוקה שבדשבורד.</p>
+      <h2>יציבות המודל — בדיקה משלימה בלבד</h2>
+      <p class="sub">המדדים המדווחים בדשבורד מחושבים רק על ה‑20% Test. כאן, לצורך בדיקת אמינות בלבד, מאמנים מחדש על הגרלות אחרות. כל נקודה היא הרצה: 10 חלוקות אקראיות שונות של 80/20 ו‑5 קבוצות של Cross‑Validation. הקו השחור הוא החלוקה שבדשבורד.</p>
       <div class="legend">
         <span style="--c:var(--s1)">10 חלוקות אקראיות</span>
         <span style="--c:var(--s2)">5-Fold CV</span>
@@ -412,7 +413,7 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   // ---- Threshold-driven views
   function render(t) {
     const m = at(t);
-    $("thrOut").textContent = t.toFixed(2);
+    $("thrOut").textContent = t.toFixed(3);
     const x = sweep.sx(t); thrLine.setAttribute("x1", x); thrLine.setAttribute("x2", x);
     const kp = [
       ["Recall", m.recall, `נתפסו ${m.tp} מתוך ${m.tp + m.fn} הונאות`],
@@ -420,8 +421,8 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
       ["F1 Score", m.f1, "ממוצע הרמוני של Precision ו‑Recall"],
       ["ROC AUC", D.balanced.roc_auc, "לא תלוי בסף · יכולת הפרדה כללית"],
     ];
-    $("kpis").innerHTML = kp.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l}</div><div class="value ltr">${v.toFixed(3)}</div><div class="note">${n}</div></div>`).join("");
-    $("cmSub").textContent = `נתוני מבחן, סף ${t.toFixed(2)}. השורות הן המצב האמיתי והעמודות הן החיזוי.`;
+    $("kpis").innerHTML = kp.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l} · <span class="ltr">Test (20%)</span></div><div class="value ltr">${v.toFixed(3)}</div><div class="note">${n}</div></div>`).join("");
+    $("cmSub").textContent = `נתוני מבחן, סף ${t.toFixed(3)}. השורות הן המצב האמיתי והעמודות הן החיזוי.`;
     const mx = Math.max(m.tn, m.fp, m.fn, m.tp);
     const cell = (v, lbl, bad) => `<div class="cell${bad ? " bad" : ""}" style="background:color-mix(in srgb, var(--cell-2) ${Math.round(20 + 80 * Math.sqrt(v / mx))}%, var(--surface))"><b>${v}</b>${lbl}</div>`;
     $("cm").innerHTML = `<div></div><div class="h">חיזוי: תקין</div><div class="h">חיזוי: הונאה</div>` +
@@ -432,7 +433,9 @@ footer { color: var(--muted); font-size: .8rem; margin-top: 28px; }
   const thr = $("thr");
   thr.oninput = () => render(+thr.value);
   $("thrDefault").onclick = () => { thr.value = 0.5; render(0.5); };
-  $("thrBest").onclick = () => { const t = Math.min(0.99, +D.best_f1_threshold.toFixed(2)); thr.value = t; render(t); };
+  const bm = D.best_f1_metrics;
+  $("bestNote").innerHTML = `הסף המיטבי (<b class="ltr">${D.best_f1_threshold.toFixed(3)}</b>) נבחר ב‑5-Fold CV על נתוני ה‑Train בלבד (F1 ב‑CV: <span class="ltr">${D.best_f1_cv_f1.toFixed(3)}</span>), ונתוני ה‑Test לא שימשו לכוונון. התוצאה שלו על ה‑Test: Recall <span class="ltr">${bm.recall.toFixed(3)}</span> · Precision <span class="ltr">${bm.precision.toFixed(3)}</span> · F1 <span class="ltr">${bm.f1.toFixed(3)}</span>.`;
+  $("thrBest").onclick =() => { const t = D.best_f1_threshold; thr.value = t; render(t); };
 
   // ---- Live predictor (same pipeline as Python: standardise + one-hot + sigmoid)
   const M = D.model;
